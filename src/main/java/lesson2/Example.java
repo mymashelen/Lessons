@@ -1,7 +1,8 @@
-import java.lang.reflect.Array;
+package lesson2;
+
 import java.util.Arrays;
 
-public class HomeWork {
+public class Example {
     public static void main(String[] args) {
         printThreeWords();
         checkSumSign();
@@ -120,7 +121,7 @@ public class HomeWork {
                     arr[i][j] = 1;
                 }
             }
-            }
+        }
         System.out.println(Arrays.deepToString(arr));
     }
 

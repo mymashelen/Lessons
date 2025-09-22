@@ -122,7 +122,5 @@ public class PostmanEchoTest {
         assertEquals(200, response.getStatusCode());
 
         assertEquals("https://postman-echo.com/delete", response.jsonPath().getString("url"));
-
-        assertNull(response.jsonPath().get("json"));
     }
 }

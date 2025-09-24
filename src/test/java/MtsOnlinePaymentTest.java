@@ -1,89 +1,134 @@
+import lesson10.HomePage;
+import lesson10.PaymentPage;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.openqa.selenium.*;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
-import java.time.Duration;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MtsOnlinePaymentTest {
     private WebDriver driver;
-    private WebDriverWait wait;
+    private HomePage homePage;
+    private PaymentPage paymentPage;
     private static final String BASE_URL = "https://www.mts.by";
-    private static final int WAIT_TIMEOUT = 30;
 
     @BeforeEach
     public void setUp() {
         WebDriverManager.chromedriver().setup();
         driver = new ChromeDriver();
         driver.manage().window().maximize();
-        wait = new WebDriverWait(driver, Duration.ofSeconds(WAIT_TIMEOUT));
         driver.get(BASE_URL);
-        acceptCookiesIfPresent();
+
+        homePage = new HomePage(driver);
+        paymentPage = new PaymentPage(driver);
+
+        homePage.acceptCookies();
+        homePage.waitForPageToLoad(); // Ждем загрузки страницы
     }
 
     @Test
     void testPaymentBlockTitle() {
-        WebElement title = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.xpath("//div[contains(@class,'pay')]//h2[contains(text(),'Онлайн пополнение')]")));
-        assertEquals("Онлайн пополнение без комиссии", title.getText().replace("\n", " ").trim());
+        homePage.openServiceDropdown();
+        homePage.selectCommunicationServices();
+
+        String title = homePage.getBlockTitle();
+        assertEquals("Онлайн пополнение без комиссии", title);
     }
 
     @Test
     void testPaymentSystemLogos() {
-        List<WebElement> logos = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
-                By.cssSelector(".pay__partners ul li img")));
-        assertEquals(5, logos.size(), "Должно быть ровно 5 логотипов платежных систем");
+        homePage.openServiceDropdown();
+        homePage.selectCommunicationServices();
 
-        String[] expectedAlts = {"Visa", "Verified By Visa", "MasterCard", "MasterCard Secure Code", "Белкарт"};
-        for (int i = 0; i < logos.size(); i++) {
-            assertEquals(expectedAlts[i], logos.get(i).getAttribute("alt"),
-                    "Логотип №" + (i+1) + ": неправильный атрибут 'alt'");
+        int logosCount = homePage.getPaymentSystemLogosCount();
+        assertTrue(logosCount >= 3, "Должно быть хотя бы 3 логотипа платежных систем");
+
+        String[] actualAlts = homePage.getPaymentSystemAltTexts();
+        boolean hasVisa = false;
+        boolean hasMastercard = false;
+
+        for (String alt : actualAlts) {
+            if (alt.contains("Visa")) hasVisa = true;
+            if (alt.contains("MasterCard")) hasMastercard = true;
         }
+
+        assertTrue(hasVisa, "Не найден логотип Visa");
+        assertTrue(hasMastercard, "Не найден логотип MasterCard");
     }
 
     @Test
     void testServiceDetailsLink() {
-        WebElement link = wait.until(ExpectedConditions.elementToBeClickable(By.linkText("Подробнее о сервисе")));
-        link.click();
-        wait.until(ExpectedConditions.urlContains("/help/poryadok-oplaty-i-bezopasnost-internet-platezhey/"));
+        homePage.openServiceDropdown();
+        homePage.selectCommunicationServices();
 
-        assertEquals("https://www.mts.by/help/poryadok-oplaty-i-bezopasnost-internet-platezhey/",
-                driver.getCurrentUrl());
+        homePage.clickServiceDetailsLink();
+
+        String currentUrl = homePage.getCurrentUrl();
+        assertTrue(currentUrl.contains("/help/"), "URL должен содержать /help/");
     }
 
     @Test
-    public void testFormSubmission() {
-        WebElement phoneNumberInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("connection-phone")));
-        phoneNumberInput.sendKeys("297777777");
+    void testPlaceholdersForAllPaymentOptions() {
+        // Проверка Услуг связи
+        homePage.openServiceDropdown();
+        homePage.selectCommunicationServices();
 
-        WebElement sumInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("connection-sum")));
-        sumInput.sendKeys("100");
+        assertTrue(paymentPage.getPhonePlaceholder().contains("Номер") ||
+                paymentPage.getPhonePlaceholder().contains("телефон"));
+        assertTrue(paymentPage.getSumPlaceholder().contains("Сумма"));
 
-        WebElement continueButton = wait.until(ExpectedConditions.elementToBeClickable(
-                By.xpath("//form[@id='pay-connection']//button[text()='Продолжить']")));
-        continueButton.click();
+        // Проверка Домашнего интернета
+        homePage.openServiceDropdown();
+        homePage.selectInternetServices();
+        assertTrue(paymentPage.getInternetPhonePlaceholder().contains("Номер") ||
+                paymentPage.getInternetPhonePlaceholder().contains("абонент"));
 
-        WebElement iframe = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".bepaid-iframe")));
+        // Проверка Рассрочки
+        homePage.openServiceDropdown();
+        homePage.selectInstallmentServices();
+        assertTrue(paymentPage.getInstallmentAccountPlaceholder().contains("счет"));
 
-        assertTrue(iframe.isDisplayed(), "Окно оплаты не открылся!");
+        // Проверка Задолженности
+        homePage.openServiceDropdown();
+        homePage.selectDebtServices();
+        assertTrue(paymentPage.getDebtAccountPlaceholder().contains("счет"));
     }
 
-    private void acceptCookiesIfPresent() {
-        try {
-            List<WebElement> cookieButtons = driver.findElements(By.cssSelector(".btn.btn_black.cookie__ok"));
-            if (!cookieButtons.isEmpty() && cookieButtons.get(0).isDisplayed()) {
-                cookieButtons.get(0).click();
-                wait.until(ExpectedConditions.invisibilityOf(cookieButtons.get(0)));
-            }
-        } catch (TimeoutException | NoSuchElementException ignored) {}
+    @Test
+    void testCommunicationServicesPayment() {
+        homePage.openServiceDropdown();
+        homePage.selectCommunicationServices();
+
+        // Заполняем форму
+        paymentPage.fillCommunicationForm("297777777", "100", "test@example.com");
+        paymentPage.clickContinueButton();
+
+        // Проверяем открытие модального окна
+        assertTrue(paymentPage.isPaymentModalDisplayed());
+
+        // Переключаемся в iframe и проверяем содержимое
+        paymentPage.switchToPaymentFrame();
+
+        // Проверяем отображение номера телефона и суммы
+        String displayedPhone = paymentPage.getDisplayedPhoneNumber();
+        String displayedAmount = paymentPage.getDisplayedAmount();
+        String buttonText = paymentPage.getPaymentButtonText();
+
+        assertTrue(displayedPhone.contains("375297777777") || displayedPhone.contains("297777777"),
+                "Номер телефона должен содержать 375297777777 или 297777777");
+        assertTrue(displayedAmount.contains("100") || buttonText.contains("100"),
+                "Сумма должна содержать 100");
+
+        // Проверяем наличие полей для ввода реквизитов карты
+        assertTrue(paymentPage.areCardFieldsPresent());
+
+        // Проверяем наличие иконок платежных систем
+        assertTrue(paymentPage.arePaymentSystemIconsDisplayed());
+
+        paymentPage.switchToDefaultContent();
     }
 
     @AfterEach

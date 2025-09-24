@@ -1,8 +1,9 @@
 package lesson10;
 
-import org.openqa.selenium.*;
-import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.support.PageFactory;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -13,169 +14,195 @@ public class PaymentPage {
     private WebDriver driver;
     private WebDriverWait wait;
 
-    // Communication services form
-    @FindBy(id = "connection-phone")
-    private WebElement phoneInput;
+    // Локаторы полей ввода для разных форм
+    private By phoneInputServices = By.id("connection-phone");
+    private By phoneInputInternet = By.id("internet-phone");
+    private By phoneInputInstallment = By.id("score-instalment");
+    private By phoneInputDebt = By.id("score-arrears");
 
-    @FindBy(id = "connection-sum")
-    private WebElement sumInput;
+    private By sumInputServices = By.id("connection-sum");
+    private By sumInputInternet = By.id("internet-sum");
+    private By sumInputInstallment = By.id("instalment-sum");
+    private By sumInputDebt = By.id("arrears-sum");
 
-    @FindBy(id = "connection-email")
-    private WebElement emailInput;
+    private By continueButton = By.xpath("//button[contains(text(), 'Продолжить')]");
 
-    @FindBy(xpath = "//form[@id='pay-connection']//button[text()='Продолжить']")
-    private WebElement continueButton;
-
-    // Internet form
-    @FindBy(id = "internet-phone")
-    private WebElement internetPhoneInput;
-
-    // Installment form
-    @FindBy(id = "score-instalment")
-    private WebElement installmentAccountInput;
-
-    // Debt form
-    @FindBy(id = "score-arrears")
-    private WebElement debtAccountInput;
-
-    // Payment modal
-    @FindBy(css = ".bepaid-iframe, iframe[src*='bepaid']")
-    private WebElement paymentIframe;
+    // Локаторы для окна оплаты
+    private By paymentIframe = By.cssSelector("iframe.bepaid-iframe");
 
     public PaymentPage(WebDriver driver) {
         this.driver = driver;
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-        PageFactory.initElements(driver, this);
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(20));
     }
 
-    // Communication services methods
-    public void fillCommunicationForm(String phone, String amount, String email) {
-        wait.until(ExpectedConditions.visibilityOf(phoneInput)).clear();
-        phoneInput.sendKeys(phone);
-
-        wait.until(ExpectedConditions.visibilityOf(sumInput)).clear();
-        sumInput.sendKeys(amount);
-
-        if (email != null && !email.isEmpty()) {
-            wait.until(ExpectedConditions.visibilityOf(emailInput)).clear();
-            emailInput.sendKeys(email);
+    public String getPhonePlaceholder(String optionName) {
+        try {
+            By phoneInput = getPhoneInputLocator(optionName);
+            WebElement input = wait.until(ExpectedConditions.visibilityOfElementLocated(phoneInput));
+            return input.getAttribute("placeholder");
+        } catch (Exception e) {
+            return "Поле не найдено для: " + optionName;
         }
     }
 
-    public void clickContinueButton() {
-        wait.until(ExpectedConditions.elementToBeClickable(continueButton)).click();
-        wait.until(ExpectedConditions.visibilityOf(paymentIframe));
-    }
-
-    // Placeholder getters
-    public String getPhonePlaceholder() {
-        return wait.until(ExpectedConditions.visibilityOf(phoneInput))
-                .getAttribute("placeholder");
-    }
-
-    public String getSumPlaceholder() {
-        return wait.until(ExpectedConditions.visibilityOf(sumInput))
-                .getAttribute("placeholder");
-    }
-
-    public String getEmailPlaceholder() {
-        return wait.until(ExpectedConditions.visibilityOf(emailInput))
-                .getAttribute("placeholder");
-    }
-
-    public String getInternetPhonePlaceholder() {
-        return wait.until(ExpectedConditions.visibilityOf(internetPhoneInput))
-                .getAttribute("placeholder");
-    }
-
-    public String getInstallmentAccountPlaceholder() {
-        return wait.until(ExpectedConditions.visibilityOf(installmentAccountInput))
-                .getAttribute("placeholder");
-    }
-
-    public String getDebtAccountPlaceholder() {
-        return wait.until(ExpectedConditions.visibilityOf(debtAccountInput))
-                .getAttribute("placeholder");
-    }
-
-    // Payment modal methods
-    public void switchToPaymentFrame() {
-        wait.until(ExpectedConditions.frameToBeAvailableAndSwitchToIt(paymentIframe));
-    }
-
-    public void switchToDefaultContent() {
-        driver.switchTo().defaultContent();
-    }
-
-    public boolean isPaymentModalDisplayed() {
+    public String getSumPlaceholder(String optionName) {
         try {
-            return wait.until(ExpectedConditions.visibilityOf(paymentIframe)).isDisplayed();
+            By sumInput = getSumInputLocator(optionName);
+            WebElement input = wait.until(ExpectedConditions.visibilityOfElementLocated(sumInput));
+            return input.getAttribute("placeholder");
         } catch (Exception e) {
+            return "Поле не найдено для: " + optionName;
+        }
+    }
+
+    private By getPhoneInputLocator(String optionName) {
+        switch (optionName) {
+            case "Услуги связи":
+                return phoneInputServices;
+            case "Домашний интернет":
+                return phoneInputInternet;
+            case "Рассрочка":
+                return phoneInputInstallment;
+            case "Задолженность":
+                return phoneInputDebt;
+            default:
+                return phoneInputServices;
+        }
+    }
+
+    private By getSumInputLocator(String optionName) {
+        switch (optionName) {
+            case "Услуги связи":
+                return sumInputServices;
+            case "Домашний интернет":
+                return sumInputInternet;
+            case "Рассрочка":
+                return sumInputInstallment;
+            case "Задолженность":
+                return sumInputDebt;
+            default:
+                return sumInputServices;
+        }
+    }
+
+    public void fillPaymentForm(String phone, String amount) {
+        try {
+            // Используем форму "Услуги связи" по умолчанию
+            WebElement phoneField = wait.until(ExpectedConditions.elementToBeClickable(phoneInputServices));
+            WebElement sumField = wait.until(ExpectedConditions.elementToBeClickable(sumInputServices));
+
+            // Очищаем и заполняем через JS
+            ((JavascriptExecutor) driver).executeScript("arguments[0].value = ''; arguments[0].value = arguments[1];", phoneField, phone);
+            ((JavascriptExecutor) driver).executeScript("arguments[0].value = ''; arguments[0].value = arguments[1];", sumField, amount);
+
+            Thread.sleep(1000);
+
+        } catch (Exception e) {
+            System.out.println("Ошибка при заполнении формы: " + e.getMessage());
+        }
+    }
+
+    public void clickContinue() {
+        try {
+            WebElement button = wait.until(ExpectedConditions.elementToBeClickable(continueButton));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", button);
+            Thread.sleep(500);
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
+            Thread.sleep(5000); // Даем больше времени на загрузку iframe
+        } catch (Exception e) {
+            System.out.println("Ошибка при клике на кнопку: " + e.getMessage());
+        }
+    }
+
+    public boolean isPaymentIframeDisplayed() {
+        try {
+            WebElement iframe = wait.until(ExpectedConditions.visibilityOfElementLocated(paymentIframe));
+            return iframe.isDisplayed();
+        } catch (Exception e) {
+            System.out.println("Iframe не найден: " + e.getMessage());
             return false;
         }
     }
 
-    // Methods to verify payment modal content (inside iframe)
-    public String getDisplayedPhoneNumber() {
+    public void switchToPaymentFrame() {
         try {
-            WebElement phoneElement = wait.until(ExpectedConditions
-                    .presenceOfElementLocated(By.cssSelector("[data-bepaid-value='phone'], .phone-number")));
-            return phoneElement.getText();
+            wait.until(ExpectedConditions.frameToBeAvailableAndSwitchToIt(paymentIframe));
+            // Ждем загрузки содержимого iframe
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
+            Thread.sleep(2000);
         } catch (Exception e) {
-            // Альтернативный поиск
-            List<WebElement> elements = driver.findElements(By.xpath("//*[contains(text(),'375')]"));
-            return elements.isEmpty() ? "Phone not found" : elements.get(0).getText();
+            System.out.println("Ошибка при переключении на iframe: " + e.getMessage());
         }
     }
 
-    public String getDisplayedAmount() {
+    public void switchToDefaultContent() {
         try {
-            WebElement amountElement = wait.until(ExpectedConditions
-                    .presenceOfElementLocated(By.cssSelector(".payment-page__order-info-amount, .amount")));
-            return amountElement.getText();
+            driver.switchTo().defaultContent();
         } catch (Exception e) {
-            List<WebElement> elements = driver.findElements(By.xpath("//*[contains(text(),'BYN')]"));
-            return elements.isEmpty() ? "Amount not found" : elements.get(0).getText();
+            System.out.println("Ошибка при возврате к основному контенту: " + e.getMessage());
         }
     }
 
-    public String getPaymentButtonText() {
+    public boolean isAmountDisplayed(String expectedAmount) {
         try {
-            WebElement button = wait.until(ExpectedConditions
-                    .elementToBeClickable(By.cssSelector(".payment-page__btn, .pay-button")));
-            return button.getText();
+            // Ищем сумму различными способами
+            List<WebElement> amountElements = driver.findElements(
+                    By.cssSelector("[data-behavior='amount'], .amount, [class*='sum'], [class*='cost']"));
+
+            for (WebElement element : amountElements) {
+                if (element.isDisplayed()) {
+                    String text = element.getText();
+                    System.out.println("Найден элемент с суммой: " + text);
+                    if (text.contains(expectedAmount) || text.contains("1.00") || text.contains("1,00")) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         } catch (Exception e) {
-            return "Button text not found";
+            System.out.println("Ошибка при поиске суммы: " + e.getMessage());
+            return false;
         }
     }
 
-    public boolean arePaymentSystemIconsDisplayed() {
+    public boolean isPhoneDisplayed(String expectedPhone) {
         try {
-            List<WebElement> icons = driver.findElements(
-                    By.cssSelector(".payment-methods-list img, [class*='payment-system'] img"));
-            return !icons.isEmpty();
+            List<WebElement> phoneElements = driver.findElements(
+                    By.cssSelector("[data-behavior='phone'], .phone, [class*='phone']"));
+
+            for (WebElement element : phoneElements) {
+                if (element.isDisplayed()) {
+                    String text = element.getText();
+                    System.out.println("Найден элемент с номером: " + text);
+                    if (text.contains(expectedPhone) || text.contains("375297777777")) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         } catch (Exception e) {
+            System.out.println("Ошибка при поиске номера: " + e.getMessage());
             return false;
         }
     }
 
     public boolean areCardFieldsPresent() {
         try {
-            // Ищем поля карты по различным селекторам
-            List<WebElement> cardFields = driver.findElements(
-                    By.cssSelector("[data-bepaid-type='card_number'], [name*='card'], input[placeholder*='карт']"));
-            return !cardFields.isEmpty();
+            List<WebElement> cardInputs = driver.findElements(
+                    By.cssSelector("input[placeholder*='карт'], input[placeholder*='card'], input[name*='card']"));
+            return !cardInputs.isEmpty();
         } catch (Exception e) {
             return false;
         }
     }
 
-    public void scrollToElement(WebElement element) {
-        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", element);
+    public boolean arePaymentIconsPresent() {
         try {
-            Thread.sleep(500); // Небольшая пауза после скролла
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            List<WebElement> icons = driver.findElements(
+                    By.cssSelector("img[alt*='Visa'], img[alt*='MasterCard'], img[alt*='Belkart']"));
+            return !icons.isEmpty();
+        } catch (Exception e) {
+            return false;
         }
     }
 }

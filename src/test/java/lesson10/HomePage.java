@@ -1,10 +1,9 @@
 package lesson10;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.support.PageFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -15,121 +14,136 @@ public class HomePage {
     private WebDriver driver;
     private WebDriverWait wait;
 
-    @FindBy(css = ".btn.btn_black.cookie__ok, .cookie-warning__accept")
-    private WebElement acceptCookiesButton;
+    // Локаторы
+    private By cookieBanner = By.cssSelector(".cookie.show");
+    private By cookieAcceptButton = By.cssSelector(".cookie__ok, .btn_black");
+    private By paymentBlockTitle = By.xpath("//h2[contains(text(), 'Онлайн пополнение')]");
+    private By paymentLogosContainer = By.cssSelector(".pay__partners");
+    private By serviceDetailsLink = By.partialLinkText("Подробнее о сервисе");
 
-    @FindBy(xpath = "//div[contains(@class,'pay')]//h2[contains(text(),'Онлайн пополнение')]")
-    private WebElement blockTitle;
-
-    @FindBy(css = ".pay__partners ul li img, .payment-systems img")
-    private List<WebElement> paymentSystemLogos;
-
-    @FindBy(linkText = "Подробнее о сервисе")
-    private WebElement serviceDetailsLink;
-
-    // Улучшенные локаторы для dropdown
-    @FindBy(css = ".pay__select-trigger, .select__trigger, [class*='select-trigger']")
-    private WebElement serviceDropdown;
-
-    @FindBy(xpath = "//div[contains(@class,'pay__select-option') and contains(text(),'Услуги связи')]")
-    private WebElement communicationServicesOption;
-
-    @FindBy(xpath = "//div[contains(@class,'pay__select-option') and contains(text(),'Домашний интернет')]")
-    private WebElement internetOption;
-
-    @FindBy(xpath = "//div[contains(@class,'pay__select-option') and contains(text(),'Рассрочка')]")
-    private WebElement installmentOption;
-
-    @FindBy(xpath = "//div[contains(@class,'pay__select-option') and contains(text(),'Задолженность')]")
-    private WebElement debtOption;
+    // SELECT dropdown элементы
+    private By selectDropdown = By.cssSelector(".select__header");
+    private By selectOptions = By.cssSelector(".select__option");
+    private By selectedOption = By.cssSelector(".select__now");
 
     public HomePage(WebDriver driver) {
         this.driver = driver;
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-        PageFactory.initElements(driver, this);
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(20));
     }
 
     public void acceptCookies() {
         try {
-            wait.until(ExpectedConditions.elementToBeClickable(acceptCookiesButton)).click();
-            wait.until(ExpectedConditions.invisibilityOf(acceptCookiesButton));
+            // Ждем появления баннера куки
+            wait.until(ExpectedConditions.visibilityOfElementLocated(cookieBanner));
+
+            List<WebElement> cookieButtons = driver.findElements(cookieAcceptButton);
+            if (!cookieButtons.isEmpty()) {
+                // Кликаем через JavaScript чтобы обойти перехват клика
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", cookieButtons.get(0));
+                // Ждем исчезновения баннера
+                wait.until(ExpectedConditions.invisibilityOfElementLocated(cookieBanner));
+                Thread.sleep(1000);
+            }
         } catch (Exception e) {
-            System.out.println("Cookies already accepted or not present: " + e.getMessage());
+            System.out.println("Куки уже приняты или баннер отсутствует: " + e.getMessage());
         }
     }
 
-    public void waitForPageToLoad() {
-        // Ждем загрузки основных элементов
-        wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.xpath("//div[contains(@class,'pay')]")));
+    public void waitForPageLoad() {
+        wait.until(ExpectedConditions.presenceOfElementLocated(paymentBlockTitle));
     }
 
-    public String getBlockTitle() {
-        return wait.until(ExpectedConditions.visibilityOf(blockTitle))
-                .getText().replace("\n", " ").trim();
+    public String getPaymentBlockTitle() {
+        WebElement title = wait.until(ExpectedConditions.visibilityOfElementLocated(paymentBlockTitle));
+        return title.getText().replace("\n", " ").trim();
     }
 
-    public int getPaymentSystemLogosCount() {
-        wait.until(ExpectedConditions.visibilityOfAllElements(paymentSystemLogos));
-        return paymentSystemLogos.size();
-    }
-
-    public String[] getPaymentSystemAltTexts() {
-        wait.until(ExpectedConditions.visibilityOfAllElements(paymentSystemLogos));
-        return paymentSystemLogos.stream()
-                .map(logo -> logo.getAttribute("alt"))
-                .toArray(String[]::new);
+    public boolean arePaymentLogosDisplayed() {
+        try {
+            WebElement container = wait.until(ExpectedConditions.visibilityOfElementLocated(paymentLogosContainer));
+            List<WebElement> logos = container.findElements(By.tagName("img"));
+            return logos.size() >= 3;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public void clickServiceDetailsLink() {
-        wait.until(ExpectedConditions.elementToBeClickable(serviceDetailsLink)).click();
+        try {
+            WebElement link = wait.until(ExpectedConditions.elementToBeClickable(serviceDetailsLink));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", link);
+            wait.until(ExpectedConditions.urlContains("oplaty"));
+        } catch (Exception e) {
+            System.out.println("Ошибка при клике на ссылку: " + e.getMessage());
+        }
+    }
+
+    public boolean isServiceDetailsLinkWorking() {
+        try {
+            String originalUrl = driver.getCurrentUrl();
+            clickServiceDetailsLink();
+            return !driver.getCurrentUrl().equals(originalUrl);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void selectPaymentOption(String optionName) {
+        try {
+            System.out.println("Пытаемся выбрать опцию: " + optionName);
+
+            // Прокручиваем к dropdown
+            WebElement dropdown = wait.until(ExpectedConditions.presenceOfElementLocated(selectDropdown));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", dropdown);
+            Thread.sleep(1000);
+
+            // Кликаем через JS чтобы обойти перехват
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", dropdown);
+            Thread.sleep(1000);
+
+            // Выбираем опцию
+            selectOptionFromList(optionName);
+
+            Thread.sleep(2000);
+
+        } catch (Exception e) {
+            System.out.println("Ошибка при выборе опции '" + optionName + "': " + e.getMessage());
+        }
+    }
+
+    private void selectOptionFromList(String optionName) {
+        try {
+            List<WebElement> options = wait.until(ExpectedConditions.visibilityOfAllElementsLocatedBy(selectOptions));
+            System.out.println("Найдено опций: " + options.size());
+
+            for (WebElement option : options) {
+                String optionText = option.getText().trim();
+                System.out.println("Проверяем опцию: '" + optionText + "'");
+
+                if (optionText.equals(optionName)) {
+                    System.out.println("Нашли точное совпадение: " + optionName);
+                    ((JavascriptExecutor) driver).executeScript("arguments[0].click();", option);
+                    return;
+                }
+            }
+
+            System.out.println("Опция '" + optionName + "' не найдена в списке");
+
+        } catch (Exception e) {
+            System.out.println("Ошибка при выборе опции из списка: " + e.getMessage());
+        }
+    }
+
+    public String getCurrentlySelectedPaymentOption() {
+        try {
+            WebElement selected = driver.findElement(selectedOption);
+            return selected.getText().trim();
+        } catch (Exception e) {
+            return "Не удалось определить выбранную опцию";
+        }
     }
 
     public String getCurrentUrl() {
         return driver.getCurrentUrl();
-    }
-
-    public void openServiceDropdown() {
-        try {
-            // Ждем и кликаем на dropdown
-            wait.until(ExpectedConditions.elementToBeClickable(serviceDropdown)).click();
-            // Ждем появления опций
-            wait.until(ExpectedConditions.visibilityOf(communicationServicesOption));
-        } catch (Exception e) {
-            // Попробуем альтернативный локатор
-            try {
-                WebElement altDropdown = driver.findElement(By.cssSelector(".select__trigger, [class*='dropdown']"));
-                altDropdown.click();
-                wait.until(ExpectedConditions.visibilityOfElementLocated(
-                        By.xpath("//div[contains(text(),'Услуги связи')]")));
-            } catch (Exception ex) {
-                System.out.println("Cannot find dropdown: " + ex.getMessage());
-                throw ex;
-            }
-        }
-    }
-
-    public void selectCommunicationServices() {
-        wait.until(ExpectedConditions.elementToBeClickable(communicationServicesOption)).click();
-        waitForFormToLoad("connection-phone");
-    }
-
-    public void selectInternetServices() {
-        wait.until(ExpectedConditions.elementToBeClickable(internetOption)).click();
-        waitForFormToLoad("internet-phone");
-    }
-
-    public void selectInstallmentServices() {
-        wait.until(ExpectedConditions.elementToBeClickable(installmentOption)).click();
-        waitForFormToLoad("score-instalment");
-    }
-
-    public void selectDebtServices() {
-        wait.until(ExpectedConditions.elementToBeClickable(debtOption)).click();
-        waitForFormToLoad("score-arrears");
-    }
-
-    private void waitForFormToLoad(String elementId) {
-        wait.until(ExpectedConditions.presenceOfElementLocated(By.id(elementId)));
     }
 }

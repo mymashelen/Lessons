@@ -14,14 +14,12 @@ public class HomePage {
     private WebDriver driver;
     private WebDriverWait wait;
 
-    // Локаторы
     private By cookieBanner = By.cssSelector(".cookie.show");
     private By cookieAcceptButton = By.cssSelector(".cookie__ok, .btn_black");
     private By paymentBlockTitle = By.xpath("//h2[contains(text(), 'Онлайн пополнение')]");
     private By paymentLogosContainer = By.cssSelector(".pay__partners");
     private By serviceDetailsLink = By.partialLinkText("Подробнее о сервисе");
 
-    // SELECT dropdown элементы
     private By selectDropdown = By.cssSelector(".select__header");
     private By selectOptions = By.cssSelector(".select__option");
     private By selectedOption = By.cssSelector(".select__now");
@@ -33,14 +31,11 @@ public class HomePage {
 
     public void acceptCookies() {
         try {
-            // Ждем появления баннера куки
             wait.until(ExpectedConditions.visibilityOfElementLocated(cookieBanner));
 
             List<WebElement> cookieButtons = driver.findElements(cookieAcceptButton);
             if (!cookieButtons.isEmpty()) {
-                // Кликаем через JavaScript чтобы обойти перехват клика
                 ((JavascriptExecutor) driver).executeScript("arguments[0].click();", cookieButtons.get(0));
-                // Ждем исчезновения баннера
                 wait.until(ExpectedConditions.invisibilityOfElementLocated(cookieBanner));
                 Thread.sleep(1000);
             }
@@ -92,16 +87,13 @@ public class HomePage {
         try {
             System.out.println("Пытаемся выбрать опцию: " + optionName);
 
-            // Прокручиваем к dropdown
             WebElement dropdown = wait.until(ExpectedConditions.presenceOfElementLocated(selectDropdown));
             ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", dropdown);
             Thread.sleep(1000);
 
-            // Кликаем через JS чтобы обойти перехват
             ((JavascriptExecutor) driver).executeScript("arguments[0].click();", dropdown);
             Thread.sleep(1000);
 
-            // Выбираем опцию
             selectOptionFromList(optionName);
 
             Thread.sleep(2000);
@@ -141,9 +133,5 @@ public class HomePage {
         } catch (Exception e) {
             return "Не удалось определить выбранную опцию";
         }
-    }
-
-    public String getCurrentUrl() {
-        return driver.getCurrentUrl();
     }
 }

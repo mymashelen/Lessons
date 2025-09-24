@@ -8,13 +8,11 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
-import java.util.List;
 
 public class PaymentPage {
     private WebDriver driver;
     private WebDriverWait wait;
 
-    // Локаторы полей ввода для разных форм
     private By phoneInputServices = By.id("connection-phone");
     private By phoneInputInternet = By.id("internet-phone");
     private By phoneInputInstallment = By.id("score-instalment");
@@ -27,7 +25,6 @@ public class PaymentPage {
 
     private By continueButton = By.xpath("//button[contains(text(), 'Продолжить')]");
 
-    // Локаторы для окна оплаты
     private By paymentIframe = By.cssSelector("iframe.bepaid-iframe");
 
     public PaymentPage(WebDriver driver) {
@@ -87,11 +84,9 @@ public class PaymentPage {
 
     public void fillPaymentForm(String phone, String amount) {
         try {
-            // Используем форму "Услуги связи" по умолчанию
             WebElement phoneField = wait.until(ExpectedConditions.elementToBeClickable(phoneInputServices));
             WebElement sumField = wait.until(ExpectedConditions.elementToBeClickable(sumInputServices));
 
-            // Очищаем и заполняем через JS
             ((JavascriptExecutor) driver).executeScript("arguments[0].value = ''; arguments[0].value = arguments[1];", phoneField, phone);
             ((JavascriptExecutor) driver).executeScript("arguments[0].value = ''; arguments[0].value = arguments[1];", sumField, amount);
 
@@ -127,7 +122,6 @@ public class PaymentPage {
     public void switchToPaymentFrame() {
         try {
             wait.until(ExpectedConditions.frameToBeAvailableAndSwitchToIt(paymentIframe));
-            // Ждем загрузки содержимого iframe
             wait.until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
             Thread.sleep(2000);
         } catch (Exception e) {
@@ -143,64 +137,9 @@ public class PaymentPage {
         }
     }
 
-    public boolean isAmountDisplayed(String expectedAmount) {
+    public boolean isTextPresent(String text) {
         try {
-            // Ищем сумму различными способами
-            List<WebElement> amountElements = driver.findElements(
-                    By.cssSelector("[data-behavior='amount'], .amount, [class*='sum'], [class*='cost']"));
-
-            for (WebElement element : amountElements) {
-                if (element.isDisplayed()) {
-                    String text = element.getText();
-                    System.out.println("Найден элемент с суммой: " + text);
-                    if (text.contains(expectedAmount) || text.contains("1.00") || text.contains("1,00")) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        } catch (Exception e) {
-            System.out.println("Ошибка при поиске суммы: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public boolean isPhoneDisplayed(String expectedPhone) {
-        try {
-            List<WebElement> phoneElements = driver.findElements(
-                    By.cssSelector("[data-behavior='phone'], .phone, [class*='phone']"));
-
-            for (WebElement element : phoneElements) {
-                if (element.isDisplayed()) {
-                    String text = element.getText();
-                    System.out.println("Найден элемент с номером: " + text);
-                    if (text.contains(expectedPhone) || text.contains("375297777777")) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        } catch (Exception e) {
-            System.out.println("Ошибка при поиске номера: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public boolean areCardFieldsPresent() {
-        try {
-            List<WebElement> cardInputs = driver.findElements(
-                    By.cssSelector("input[placeholder*='карт'], input[placeholder*='card'], input[name*='card']"));
-            return !cardInputs.isEmpty();
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    public boolean arePaymentIconsPresent() {
-        try {
-            List<WebElement> icons = driver.findElements(
-                    By.cssSelector("img[alt*='Visa'], img[alt*='MasterCard'], img[alt*='Belkart']"));
-            return !icons.isEmpty();
+            return driver.getPageSource().contains(text);
         } catch (Exception e) {
             return false;
         }

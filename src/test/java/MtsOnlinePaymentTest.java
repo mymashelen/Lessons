@@ -65,7 +65,7 @@ public class MtsOnlinePaymentTest {
         phoneNumberInput.sendKeys("297777777");
 
         WebElement sumInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("connection-sum")));
-        sumInput.sendKeys("200");
+        sumInput.sendKeys("100");
 
         WebElement continueButton = wait.until(ExpectedConditions.elementToBeClickable(
                 By.xpath("//form[@id='pay-connection']//button[text()='Продолжить']")));

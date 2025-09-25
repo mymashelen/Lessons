@@ -1,4 +1,4 @@
-package lesson10;
+package lesson11;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
